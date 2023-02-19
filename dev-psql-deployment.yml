@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:13.2-alpine
+    restart: always
+    env_file:
+      - ./env/psql.dev.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  
+  minio:
+    extends:
+      file: core-services.yml
+      service: minio
+    volumes:
+      - minio_storage:/data
+    env_file:
+      - ./env/minio.dev.env
+    command: server /data --console-address ":9090" 
+
+
+volumes:
+  postgres_data:
+  minio_storage:
