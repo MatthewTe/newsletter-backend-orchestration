@@ -104,8 +104,17 @@ celerybeat.pid
 
 # Environments
 .env
+
 .venv
-env/
+
+*.env
+# Example configurations for environment files:
+!env/example-airflow.core.dev.env
+!env/example-airflow.admin.dev.env
+!env/example-psql.dev.env
+!env/example-minio.dev.env
+
+
 venv/
 ENV/
 env.bak/
