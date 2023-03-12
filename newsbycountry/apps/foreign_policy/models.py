@@ -5,7 +5,13 @@ from apps.geography.models import Country
 
 class ForeginPolicyRssFeed(models.Model):
     date_extracted = models.DateTimeField(auto_now_add=True)
-    rss_feed_xml = models.FileField()    
+    rss_feed_xml = models.FileField(upload_to="/foreign_policy/rss_feed/%Y/%m/%d/", null=True)
+
+    def save(*args, **kwargs):
+        """
+        """
+        super(ForeginPolicyRssFeed, self).save(*args, **kwargs)
+
 
 class ArticleLinks(models.Model):
     link = models.URLField()
