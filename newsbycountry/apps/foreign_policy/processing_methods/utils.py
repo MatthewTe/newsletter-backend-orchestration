@@ -9,8 +9,8 @@ def parse_author_dict(authors: List) -> List:
     [{'name': 'Emma Ashford and Matthew Kroenig'}] and gets converted to the format:
     
     [
-        {'firstname': 'Emma', 'lastname': 'Ashford'}
-        {'firstname': 'Matthew', 'lastname': 'Kroenig'}
+        {'first': 'Emma', 'last': 'Ashford'}
+        {'first': 'Matthew', 'last': 'Kroenig'}
     ]
     """
     # Creating list to populate with correct author name structures:
@@ -33,5 +33,13 @@ def parse_author_dict(authors: List) -> List:
     return author_lst
 
 def parse_tags_dict(tags: List) -> List:
-    # TODO: Implement this function and then implement them in the extract_fields_from_xml_entry function.
-    pass
+    """Parses the FP tag dictionary to flatten the tags provided into a format that the extract_fields_from_xml_entry
+    can make use of. 
+
+    Assumes that the tags list comes in this format: 
+    [{'term': 'Flash Points', 'scheme': None, 'label': None}, {'term': 'Eastern Europe', 'scheme': None, 'label': None}]
+    
+    And converts the tags into this:
+    ['Flash Points', 'Eastern Europe']
+    """
+    return [tag['term'] for tag in tags]

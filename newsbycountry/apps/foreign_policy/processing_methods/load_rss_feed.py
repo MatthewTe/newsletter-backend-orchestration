@@ -60,6 +60,6 @@ def extract_fields_from_xml_entry(rss_entry: dict) -> tuple:
     authors = utils.parse_author_dict(rss_entry.authors)
 
     # Parsing the tags from the entry:
-    tags = rss_entry.tags
+    tags = utils.parse_tags_dict(rss_entry.tags)
 
     return id, title, date_w_timezone, article_link, file, authors, tags
