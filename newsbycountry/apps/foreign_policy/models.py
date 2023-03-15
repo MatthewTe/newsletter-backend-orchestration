@@ -9,6 +9,9 @@ from apps.geography.models import Country
 
 from apps.foreign_policy.processing_methods import load_rss_feed 
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 class ForeginPolicyRssFeed(models.Model):
     date_extracted = models.DateTimeField(auto_now_add=True)
     rss_feed_xml = models.FileField(upload_to="foreign_policy/rss_feed/%Y/%m/%d", null=True, blank=True)
@@ -16,6 +19,11 @@ class ForeginPolicyRssFeed(models.Model):
     def save(self, *args, **kwargs):
         """
         """
+        # Creating a variable to track all of the FP articles created from this rss feed to be connected back to it
+        # via a post-save hook:
+        self._fp_articles = []
+
+
         # Actually making the request to the FP rss feed endpoint for the xml:
         xml_bytes = load_rss_feed.get_xml_from_current_daily_feed()
 
@@ -39,6 +47,9 @@ class ForeginPolicyRssFeed(models.Model):
             ) = load_rss_feed.extract_fields_from_xml_entry(entry)
 
             # Create a model for the Article and save it now so that we can connect the Tag and Author objects:
+            if ForeginPolicyArticle.objects.filter(id=entry_id).exists():
+                continue
+
             article_model = ForeginPolicyArticle(
                 id=entry_id,
                 title=entry_title,
@@ -47,6 +58,8 @@ class ForeginPolicyRssFeed(models.Model):
                 file=entry_file
             ) 
             article_model.save()
+
+            self._fp_articles.append(article_model)
 
             # Authors and Tags are relational fields and as such depend on the existence of these models in the database. Here
             # we check to see if the People and Tag entries exist and if they do not then we need to create them:
@@ -70,13 +83,33 @@ class ForeginPolicyRssFeed(models.Model):
                 # Connect the tag object via many-to-many:
                 article_model.tags.add(tag_obj)
 
-            # TODO: Try to assign the foregin key connection between this and the Article now inside the save. if not do it in a post save callback.
-
         super(ForeginPolicyRssFeed, self).save(*args, **kwargs) 
 
     def __str__(self):
         return f"Feed on {self.date_extracted}"
-    
+
+@receiver(post_save, sender=ForeginPolicyRssFeed) 
+def connect_rss_feed_to_articles(sender, instance, created, **kwargs):
+    """
+    A post save hook that connects all the ForeignPolicyArticle objects created for an 
+    RSS feed with the RSS feed object via a foreign key relationship.
+
+    :param sender: The model class of the sender.
+    :param instance: The instance of the model class that has been saved.
+    :param created: A boolean indicating whether the instance was created or updated.
+    :param kwargs: A dictionary of keyword arguments.
+    """
+
+    # Get the list of ForeignPolicyArticle objects associated with this RSS feed instance that was attached in the custom save method:
+    fp_articles = getattr(instance, "_fp_articles", None)
+
+    if fp_articles:
+        for article in fp_articles:
+            # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
+            article.rss_feed = instance
+            article.save()
+
+
 class ArticleLinks(models.Model):                                                                               
     link = models.URLField()
 
@@ -107,9 +140,13 @@ class ForeginPolicyArticle(models.Model):
         # TODO: Use post-save callback to process html from fp and extract links.
         https://stackoverflow.com/questions/43145712/calling-a-function-in-django-after-saving-a-model     
         """
+        
+        # TODO: Add logic to make it so that it does not re-query the data if it already exists:
         self.file = None
 
         super(ForeginPolicyArticle, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.title} by {self.authors} on {self.date_published}"
+    
+
