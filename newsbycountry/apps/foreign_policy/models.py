@@ -7,7 +7,7 @@ from django.core.files import File
 from apps.people.models import People
 from apps.geography.models import Country
 
-from apps.foreign_policy.processing_methods import load_rss_feed 
+from apps.foreign_policy.processing_methods import load_rss_feed
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -126,7 +126,7 @@ class ForeginPolicyArticle(models.Model):
     title = models.CharField(max_length=250)
     date_published = models.DateField()
     link = models.URLField()
-    file = models.FileField(null=True, blank=True)  # TODO: Add file path dir to store data in.
+    file = models.FileField(null=True, blank=True, upload_to="foreign_policy/articles/%Y/%m/%d")
     
     authors = models.ManyToManyField(People)
     countries = models.ManyToManyField(Country)
@@ -141,9 +141,15 @@ class ForeginPolicyArticle(models.Model):
         https://stackoverflow.com/questions/43145712/calling-a-function-in-django-after-saving-a-model     
         """
         
-        # TODO: Add logic to make it so that it does not re-query the data if it already exists:
-        self.file = None
+        if self.file != None:
+            super(ForeginPolicyArticle, self).save(*args, **kwargs)
 
+        # Making get requests to foreign policy to get the html file:
+        #fp_bytes = load_rss_feed.get_article_html_content(article_url=self.link)
+        #html_file = File(io.BytesIO(fp_bytes), name=f"article_{self.id}.html")
+
+        #self.file = html_file
+        print(f"Saving {self.title}")
         super(ForeginPolicyArticle, self).save(*args, **kwargs)
 
     def __str__(self):

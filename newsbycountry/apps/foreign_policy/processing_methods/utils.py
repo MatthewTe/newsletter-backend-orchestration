@@ -43,3 +43,4 @@ def parse_tags_dict(tags: List) -> List:
     ['Flash Points', 'Eastern Europe']
     """
     return [tag['term'] for tag in tags]
+

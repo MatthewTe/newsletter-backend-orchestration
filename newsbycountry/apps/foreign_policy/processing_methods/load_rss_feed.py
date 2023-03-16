@@ -1,6 +1,7 @@
 import requests
 import datetime
 import pytz
+import time
 import io
 
 from urllib.parse import urlparse, parse_qs
@@ -28,9 +29,13 @@ def get_article_html_content(article_url: str) -> bytes:
     This method is used inplace of just using the request object in the ForeginPolicyArticle model
     to add additional error catching or adding url proxy logic to making the request.
     """
-    article_response = requests.get(article_url)
+    headers = {'Cookie': ''}
+    article_response = requests.get(article_url, headers=headers)
 
     article_html_bytes = article_response.content
+
+    # Add timing to prevent overloading endpoint:
+    time.sleep(5)
 
     return article_html_bytes
 
