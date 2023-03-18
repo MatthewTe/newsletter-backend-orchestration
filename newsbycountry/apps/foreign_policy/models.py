@@ -6,8 +6,9 @@ from django.core.files import File
 
 from apps.people.models import People
 from apps.geography.models import Country
+from apps.references.models import Links
 
-from apps.foreign_policy.processing_methods import load_rss_feed
+from apps.foreign_policy.processing_methods import load_rss_feed, utils
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -22,7 +23,6 @@ class ForeginPolicyRssFeed(models.Model):
         # Creating a variable to track all of the FP articles created from this rss feed to be connected back to it
         # via a post-save hook:
         self._fp_articles = []
-
 
         # Actually making the request to the FP rss feed endpoint for the xml:
         xml_bytes = load_rss_feed.get_xml_from_current_daily_feed()
@@ -89,10 +89,14 @@ class ForeginPolicyRssFeed(models.Model):
         return f"Feed on {self.date_extracted}"
 
 @receiver(post_save, sender=ForeginPolicyRssFeed) 
-def connect_rss_feed_to_articles(sender, instance, created, **kwargs):
+def post_processing_FP_article_objects(sender, instance, created, **kwargs):
     """
-    A post save hook that connects all the ForeignPolicyArticle objects created for an 
-    RSS feed with the RSS feed object via a foreign key relationship.
+    A post save hook that performs all of the processing logic on the FP Article objects. 
+
+    It performs the following logic:
+        - Attaches the FP Object to the current RSSFeed object
+        - Make the http request to FP for the html content for each article
+        - Parse the html to extract links from the html and create/connect each link object to the Article objcet.
 
     :param sender: The model class of the sender.
     :param instance: The instance of the model class that has been saved.
@@ -105,13 +109,17 @@ def connect_rss_feed_to_articles(sender, instance, created, **kwargs):
 
     if fp_articles:
         for article in fp_articles:
+            
             # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
             article.rss_feed = instance
+
+            # Pulling down the html content based on the Article link param:
+            article.extract_article_html()
+
+            # Parsing the html content for all relevant links and connecting them to the Article:
+            article.parse_html_for_page_links()
+
             article.save()
-
-
-class ArticleLinks(models.Model):                                                                               
-    link = models.URLField()
 
 class ForeginPolicyTags(models.Model):
     """Represents article tags."""
@@ -126,13 +134,41 @@ class ForeginPolicyArticle(models.Model):
     title = models.CharField(max_length=250)
     date_published = models.DateField()
     link = models.URLField()
-    file = models.FileField(null=True, blank=True, upload_to="foreign_policy/articles/%Y/%m/%d")
+    file = models.FileField(null=True, blank=True, upload_to=utils.get_upload_path)
     
     authors = models.ManyToManyField(People)
     countries = models.ManyToManyField(Country)
     tags = models.ManyToManyField(ForeginPolicyTags)
-    page_refs = models.ManyToManyField(ArticleLinks)
+    page_refs = models.ManyToManyField(Links)
     rss_feed = models.ForeignKey(ForeginPolicyRssFeed, on_delete=models.SET_NULL, null=True)
+
+    def extract_article_html(self):
+        """Method makes the http request to the provided link and extracts the html content
+        of the article. It then sets the file object as the file variable to the object. 
+        """
+        fp_bytes = load_rss_feed.get_article_html_content(article_url=self.link)
+        html_file = File(io.BytesIO(fp_bytes), name=f"article_{self.id}.html")
+        self.file = html_file
+        print(f"Queried Article html from: {self.title}, Size {len(fp_bytes)} bytes")        
+
+    def parse_html_for_page_links(self):
+        """Parses the bytes for the uploaded html files to extract all of the links from the main content.
+        For each link it checks to see if there already exists a Link model object with that url. It there
+        is, that Link object is attached to the model via the page_refs ManyToMany Field. If that link does
+        not exist then it is created and amd then attached
+        """
+        # passing in the article bytes to generate the list of links: 
+        links_lst = utils.get_links_from_article_html(self.file.read())
+
+        for link in links_lst:
+            link_obj, created = Links.objects.get_or_create(
+                url=link
+            )
+
+            # Connecting the link object to the model (we just set the instance param, we do not save):
+            self.page_refs.add(link_obj)
+
+        print(f"Extracted {len(links_lst)} Links from article: {self.title}")
 
     def save(self, *args, **kwargs):
         """Adds functionality that queried the Foregin Policy article html for the model entry and processes it.
@@ -140,19 +176,8 @@ class ForeginPolicyArticle(models.Model):
         # TODO: Use post-save callback to process html from fp and extract links.
         https://stackoverflow.com/questions/43145712/calling-a-function-in-django-after-saving-a-model     
         """
-        
-        if self.file != None:
-            super(ForeginPolicyArticle, self).save(*args, **kwargs)
-
-        # Making get requests to foreign policy to get the html file:
-        #fp_bytes = load_rss_feed.get_article_html_content(article_url=self.link)
-        #html_file = File(io.BytesIO(fp_bytes), name=f"article_{self.id}.html")
-
-        #self.file = html_file
-        print(f"Saving {self.title}")
         super(ForeginPolicyArticle, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.title} by {self.authors} on {self.date_published}"
     
-

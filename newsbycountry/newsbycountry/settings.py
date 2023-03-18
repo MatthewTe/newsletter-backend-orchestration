@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'apps.people',
     'apps.foreign_policy',
     'apps.geography',
+    'apps.references'
 ]
 
 MIDDLEWARE = [
