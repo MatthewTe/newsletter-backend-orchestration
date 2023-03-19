@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1>{{article.title}}</h1>
+{% for author in article.authors.all %}
+<span>{{author.first_name}} {{author.last_name}},</span>
+{% endfor %}
+
+<div>
+    
+</div>
+{% endblock body %}

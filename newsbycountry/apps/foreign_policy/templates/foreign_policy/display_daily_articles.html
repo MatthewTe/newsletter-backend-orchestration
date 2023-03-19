@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Foreign Policy Article Content{% endblock title %}
+
+{% block body %}
+<div>
+    <h1>Articles for {{today}}</h1>
+    {% for article in articles %}
+    <div>
+        <a href="{% url 'display_single_article' id=article.id %}"><h3>{{article.title}}</h3></a>
+        <div>
+            {% for author in article.authors.all %}
+                <span>{{author.first_name}} {{author.last_name}},</span>
+                <p>{{ article.countries.all|join:", " }}</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock body %}
