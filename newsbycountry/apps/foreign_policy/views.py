@@ -9,8 +9,7 @@ def render_daily_articles(request):
     context = {}
 
     date = datetime.datetime.today()
-    #
-    daily_articles = models.ForeginPolicyArticle.objects.filter(date_published=datetime.date(2023, 3, 17))
+    daily_articles = models.ForeginPolicyArticle.objects.filter(date_published=date)
     context["articles"] = daily_articles
     context["today"] = date
 

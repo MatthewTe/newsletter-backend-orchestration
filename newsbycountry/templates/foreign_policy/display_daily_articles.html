@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% load static %}
+
 
 {% block title %}Daily Foreign Policy Article Content{% endblock title %}
 
@@ -14,8 +16,19 @@
                 <p>{{ article.countries.all|join:", " }}</p>
             {% endfor %}
         </div>
+        <div>
+            {% for tag in article.tags.all %}
+            <span>{{tag.name}}, </span>
+            {% endfor %}
+        </div>
     </div>
+    <br>
     {% endfor %}
 
+
+    <div id="root" />
+    <script src="{% static 'index-bundle.js' %}"></script>
+  </body>
+  
 </div>
 {% endblock body %}
