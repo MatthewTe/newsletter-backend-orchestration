@@ -107,7 +107,6 @@ celerybeat.pid
 
 .venv
 
-*.env
 # Example configurations for environment files:
 !env/example-airflow.core.dev.env
 !env/example-airflow.admin.dev.env

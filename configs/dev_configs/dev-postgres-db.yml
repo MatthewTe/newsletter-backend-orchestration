@@ -1,0 +1,12 @@
+services:
+  dev-psql:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=username
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=django_db
+    ports:
+      - "5432:5432"
+    env_file:
+      - common-dev.env

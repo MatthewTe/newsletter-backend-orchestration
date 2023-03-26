@@ -1,0 +1,37 @@
+services:
+  
+  django-app:
+
+    extends:
+      file: dev_configs/base-dev-config.yml
+      service: django-app
+
+    ports: 
+      - "8000:8000"
+
+  dev-psql:
+  
+    extends:
+      file: dev_configs/dev-postgres-db.yml
+      service: dev-psql
+    
+    volumes:
+      - dev-db:/var/lib/postgresql/data
+
+  dev-minio-service:
+    
+    extends:
+      file: dev_configs/dev-bucket-storage.yml
+      service: dev-minio-service
+
+    volumes:
+      - minio_storage:/data
+
+    command: server --console-address ":9001" /data
+
+volumes:
+
+  dev-db:
+    driver: local
+
+  minio_storage: {}

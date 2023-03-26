@@ -1,0 +1,10 @@
+services:
+  django-app:
+    build: ../../newsbycountry/
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ../../newsbycountry:/code
+    environment:
+      - DJANGO_SETTINGS_MODULE=newsbycountry.dev_settings
+    env_file:
+      - common-dev.env
