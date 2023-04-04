@@ -1,0 +1,23 @@
+services:
+  django-app:
+
+    extends:
+      file: dev_configs/base-dev-config.yml
+      service: django-app
+
+    ports: 
+      - "8000:8000"
+
+    networks:
+      - dev-django-network
+
+    environment:
+      - DJANGO_SETTINGS_MODULE=newsbycountry.base_settings
+
+volumes:
+
+  dev-db:
+    driver: local
+
+networks:
+  dev-django-network:

@@ -9,4 +9,4 @@ services:
     ports:
       - "5432:5432"
     env_file:
-      - common-dev.env
+      - ../common-dev.env

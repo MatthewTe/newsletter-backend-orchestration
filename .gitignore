@@ -144,3 +144,6 @@ dmypy.json
 
 # JS Packages:
 node_modules/
+
+# RabbitMQ volumn config:
+data/

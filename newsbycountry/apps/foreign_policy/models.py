@@ -1,5 +1,7 @@
 import io
 import feedparser
+import time
+from celery import shared_task
 
 from django.db import models
 from django.core.files import File
@@ -12,6 +14,31 @@ from apps.foreign_policy.processing_methods import load_rss_feed, utils
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+# Function that asyncronously processes each of the newly created FP Article model objects by adding them to the celery task que:
+@shared_task()
+def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created_article_pk):
+
+    # Querying the newly created RSS feed model object and the newly created model instance:
+    newly_created_article = ForeginPolicyArticle.objects.get(pk=newly_created_article_pk)
+
+    time.sleep(10)
+
+    # Pulling down the html content based on the Article link param:
+    #newly_created_article.extract_article_html()
+
+    # Parsing the html content for all relevant links and connecting them to the Article:
+    #newly_created_article.parse_html_for_page_links()
+
+    # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
+    
+    # TODO: To fix the issue, perhaps have a signal be sent so that the task keeps retrying untill it succedes
+    new_created_rss_feed = ForeginPolicyRssFeed.objects.get(pk=rss_feed_instance_pk)
+    newly_created_article.rss_feed = new_created_rss_feed
+
+    newly_created_article.save()
+
+
 
 class ForeginPolicyRssFeed(models.Model):
     date_extracted = models.DateTimeField(auto_now_add=True)
@@ -91,7 +118,8 @@ class ForeginPolicyRssFeed(models.Model):
 @receiver(post_save, sender=ForeginPolicyRssFeed) 
 def post_processing_FP_article_objects(sender, instance, created, **kwargs):
     """
-    A post save hook that performs all of the processing logic on the FP Article objects. 
+    A post save hook that performs all of the processing logic on the FP Article objects.
+    It shoots off a celery task for processing the article contents. 
 
     It performs the following logic:
         - Attaches the FP Object to the current RSSFeed object
@@ -110,16 +138,11 @@ def post_processing_FP_article_objects(sender, instance, created, **kwargs):
     if fp_articles:
         for article in fp_articles:
             
-            # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
-            article.rss_feed = instance
+            post_process_article_after_creation_task.delay(
+                rss_feed_instance_pk=instance.pk,
+                newly_created_article_pk=article.pk
+            )
 
-            # Pulling down the html content based on the Article link param:
-            article.extract_article_html()
-
-            # Parsing the html content for all relevant links and connecting them to the Article:
-            article.parse_html_for_page_links()
-
-            article.save()
 
 class ForeginPolicyTags(models.Model):
     """Represents article tags."""

@@ -28,7 +28,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
-    'storages',
+    'django_minio_backend',
+    'django_celery_results',
 
     'apps.people',
     'apps.foreign_policy',
@@ -116,29 +117,40 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = 'static/'
+# STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
+MINIO_MEDIA_FILES_BUCKET = "test-django"
 
 # MINIO Storage configuration:
-AWS_ACCESS_KEY_ID = os.environ.get("MINIO_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.environ.get("MINIO_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = os.environ.get("MINIO_STORAGE_BUCKET_NAME")
-AWS_S3_ENDPOINT_URL = "http://dev-minio-service:9000"
+MINIO_CONSISTENCY_CHECK_ON_START = True
+DEFAULT_FILE_STORAGE = 'django_minio_backend.models.MinioBackend'
 
-AWS_S3_FILE_OVERWRITE = False
-AWS_DEFAULT_ACL = None
-STORAGES = {
-    "default": "storages.backends.s3boto3.S3Boto3Storage",
-    "staticfiles": "storages.backends.s3boto3.S3StaticStorage"
-    }
+STATICFILES_STORAGE = 'django_minio_backend.models.MinioBackendStatic'
+
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY_ID")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_ACCESS_KEY")
+MINIO_ENDPOINT = "dev-minio-service:9000"
+MINIO_USE_HTTPS = False
+MINIO_EXTERNAL_ENDPOINT = "localhost:9000"
+MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False
+
+MINIO_PRIVATE_BUCKETS = [
+    'test-django',
+]
+MINIO_STATIC_FILES_BUCKET = 'test-django'
+ 
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static")
+]
+
+# Celery Config:
+CELERY_BROKER_URL= os.environ.get("CELERY_BROKER")
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'

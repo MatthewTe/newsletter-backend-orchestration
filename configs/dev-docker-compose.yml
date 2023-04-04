@@ -9,19 +9,25 @@ services:
     ports: 
       - "8000:8000"
 
+    networks:
+      - dev-django-network
+
   dev-psql:
   
     extends:
-      file: dev_configs/dev-postgres-db.yml
+      file: dev_configs/postgres_config/dev-postgres-db.yml
       service: dev-psql
     
     volumes:
       - dev-db:/var/lib/postgresql/data
 
+    networks:
+      - dev-django-network
+
   dev-minio-service:
     
     extends:
-      file: dev_configs/dev-bucket-storage.yml
+      file: dev_configs/minio_config/dev-bucket-storage.yml
       service: dev-minio-service
 
     volumes:
@@ -29,9 +35,37 @@ services:
 
     command: server --console-address ":9001" /data
 
+    networks:
+      - dev-django-network
+
+  # Celery and Celery Broker situation:
+  rabbitmq:
+    extends:
+      file: dev_configs/rabbitmq_config/dev-rabbitmq-broker.yml
+      service: rabbitmq
+
+    networks:
+      - dev-django-network
+
+
+  django-celery-worker:
+
+    extends:
+      file: dev_configs/base-dev-config.yml
+      service: django-app
+
+    command: celery -A newsbycountry worker --loglevel=info
+
+    networks:
+      - dev-django-network
+
+
 volumes:
 
   dev-db:
     driver: local
 
   minio_storage: {}
+
+networks:
+  dev-django-network:

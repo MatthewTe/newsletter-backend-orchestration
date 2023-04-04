@@ -13,7 +13,7 @@ services:
     command: server --console-address ":9001" /data
 
     env_file:
-      - common-dev.env
+      - ../common-dev.env
 
 volumes:
   minio_storage: {}

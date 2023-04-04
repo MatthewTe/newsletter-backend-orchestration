@@ -4,7 +4,7 @@ from django.db import models
 class Links(models.Model):
     "Model meant to represent a url as a reference for other arguments"
     id = models.AutoField(primary_key=True)                                                                               
-    url = models.URLField(unique=True)
+    url = models.URLField(unique=True, max_length=400)
 
     def __str__(self):
         return self.url
