@@ -25,10 +25,10 @@ def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created
     time.sleep(10)
 
     # Pulling down the html content based on the Article link param:
-    #newly_created_article.extract_article_html()
+    newly_created_article.extract_article_html()
 
     # Parsing the html content for all relevant links and connecting them to the Article:
-    #newly_created_article.parse_html_for_page_links()
+    newly_created_article.parse_html_for_page_links()
 
     # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
     
