@@ -9,6 +9,8 @@ services:
     ports: 
       - "8000:8000"
 
+    command: python manage.py runserver 0.0.0.0:8000
+
     networks:
       - dev-django-network
 
@@ -32,8 +34,6 @@ services:
 
     volumes:
       - minio_storage:/data
-
-    command: server --console-address ":9001" /data
 
     networks:
       - dev-django-network
