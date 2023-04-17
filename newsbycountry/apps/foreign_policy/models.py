@@ -2,13 +2,20 @@ import io
 import feedparser
 import time
 from celery import shared_task
+from urllib.parse import urlparse, parse_qs
+from nameparser import HumanName
+from bs4 import BeautifulSoup
+import validators 
 
 from django.db import models
 from django.core.files import File
 
+# Base Model imports:
+from newsbycountry.base_models import BaseRssEntry, BaseRSSFeed
+
 from apps.people.models import People
 from apps.geography.models import Country
-from apps.references.models import Links
+from apps.references.models import Links, Tags
 
 from apps.foreign_policy.processing_methods import load_rss_feed, utils
 
@@ -40,9 +47,81 @@ def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created
 
 
 
-class ForeginPolicyRssFeed(models.Model):
-    date_extracted = models.DateTimeField(auto_now_add=True)
+class ForeginPolicyRssFeed(BaseRSSFeed):
+    "RSS Feed model for parsing Foreign Policy Articles"
     rss_feed_xml = models.FileField(upload_to="foreign_policy/rss_feed/%Y/%m/%d", null=True, blank=True)
+
+    def extract_fields_from_xml_entry(self, rss_entry: dict) -> tuple:
+        """Function takes in an rss entry dictionary and extracts the fields from this
+        dict to create a ForeginPolicyArticle() object for the entry.
+        """
+        # First we de-structure all of the fields in the dictionary that are easy to destructure:
+        title, article_link = rss_entry.title, rss_entry.link
+
+        # This assumes the date values are in the format 
+        # time.struct_time(tm_year=2023, tm_mon=3, tm_mday=12, tm_hour=14, tm_min=0, tm_sec=48, tm_wday=6, tm_yday=71, tm_isdst=0),
+        date = datetime.datetime(*rss_entry.published_parsed[:6]) 
+        date_w_timezone = pytz.timezone("GMT").localize(date)
+
+        # Extracting the unique id from fp's id url as a query param. This is used as the primary key for the ForeginPolicyArticle model
+        # and may need to be changed based on if it gets changed on fp's end (eg: it is no longer unique or gets provided from the rss feed in
+        # a different way). Currently it assumes that the id paramter is provided in the form: https://foreignpolicy.com/?p=1106513
+        id_url_params =  urlparse(rss_entry.id).query
+        id = parse_qs(id_url_params)['p'][0]
+
+        #article_response =requests.get(article_link)
+        # Extracting the html bytes string for the article page:
+        file = None
+
+        # Extracting authors from the entry. 
+        authors = self._parse_author_dict(rss_entry.authors)
+
+        # Parsing the tags from the entry:
+        tags = self._parse_tags_dict(rss_entry.tags)
+
+        return id, title, date_w_timezone, article_link, file, authors, tags
+
+    def _parse_author_dict(self, authors: List) -> List:
+        """Parses the RSS feeds author dictionary to make it a data structure that is compatable with the Django Model used to represent
+        People. Assumes the author dict is in the format:
+
+        [{'name': 'Emma Ashford and Matthew Kroenig'}] and gets converted to the format:
+        
+        [
+            {'first': 'Emma', 'last': 'Ashford'}
+            {'first': 'Matthew', 'last': 'Kroenig'}
+        ]
+        """
+        # Creating list to populate with correct author name structures:
+        author_lst = []
+
+        # Iterating through the provided list of dict:
+        for author_dict in authors:
+            # Splitting the single dict string into a list of individual names:
+            names = author_dict['name'].split(' and ')
+            
+
+            # For each name in the split list, we create a NameParser object to abstract away the regex of determining first and
+            # last names:
+            for name_str in names:
+                name = HumanName(name_str)
+
+                author_lst.append(name.as_dict())
+        
+        return author_lst
+
+    def _parse_tags_dict(self, tags: List) -> List:
+        """Parses the FP tag dictionary to flatten the tags provided into a format that the extract_fields_from_xml_entry
+        can make use of. 
+
+        Assumes that the tags list comes in this format: 
+        [{'term': 'Flash Points', 'scheme': None, 'label': None}, {'term': 'Eastern Europe', 'scheme': None, 'label': None}]
+        
+        And converts the tags into this:
+        ['Flash Points', 'Eastern Europe']
+        """
+        return [tag['term'] for tag in tags]
+
 
     def save(self, *args, **kwargs):
         """
@@ -50,9 +129,10 @@ class ForeginPolicyRssFeed(models.Model):
         # Creating a variable to track all of the FP articles created from this rss feed to be connected back to it
         # via a post-save hook:
         self._fp_articles = []
+        self.feed_source = "https://foreignpolicy.com/feed/"
 
         # Actually making the request to the FP rss feed endpoint for the xml:
-        xml_bytes = load_rss_feed.get_xml_from_current_daily_feed()
+        xml_bytes = self._get_xml_content_from_url(rss_endpoint=self.feed_source)
 
         # Creating django File object from xml bytes string:
         xml_file = File(io.BytesIO(xml_bytes), name="foreign_policy_rss_feed.xml")
@@ -71,7 +151,7 @@ class ForeginPolicyRssFeed(models.Model):
                 entry_id, entry_title, entry_date_w_timezone, 
                 entry_article_link, entry_file, entry_authors, 
                 entry_tags
-            ) = load_rss_feed.extract_fields_from_xml_entry(entry)
+            ) = self.extract_fields_from_xml_entry(entry)
 
             # Create a model for the Article and save it now so that we can connect the Tag and Author objects:
             if ForeginPolicyArticle.objects.filter(id=entry_id).exists():
@@ -103,7 +183,7 @@ class ForeginPolicyRssFeed(models.Model):
             for tag in entry_tags:
 
                 # Create the tag object:
-                tag_obj, tag_created = ForeginPolicyTags.objects.get_or_create(
+                tag_obj, tag_created = Tags.objects.get_or_create(
                     name=tag
                 )
 
@@ -111,9 +191,6 @@ class ForeginPolicyRssFeed(models.Model):
                 article_model.tags.add(tag_obj)
 
         super(ForeginPolicyRssFeed, self).save(*args, **kwargs) 
-
-    def __str__(self):
-        return f"Feed on {self.date_extracted}"
 
 @receiver(post_save, sender=ForeginPolicyRssFeed) 
 def post_processing_FP_article_objects(sender, instance, created, **kwargs):
@@ -143,36 +220,8 @@ def post_processing_FP_article_objects(sender, instance, created, **kwargs):
                 newly_created_article_pk=article.pk
             )
 
-
-class ForeginPolicyTags(models.Model):
-    """Represents article tags."""
-    name = models.CharField(max_length=250, unique=True)
-
-    def __str__(self):
-        return self.name
-
-class ForeginPolicyArticle(models.Model):
+class ForeginPolicyArticle(BaseRssEntry):
     "Database model meant to represent an article from Foreign Policy magazine"
-    id = models.IntegerField(primary_key=True)
-    title = models.CharField(max_length=250)
-    date_published = models.DateField()
-    link = models.URLField()
-    file = models.FileField(null=True, blank=True, upload_to=utils.get_upload_path)
-    
-    authors = models.ManyToManyField(People)
-    countries = models.ManyToManyField(Country)
-    tags = models.ManyToManyField(ForeginPolicyTags)
-    page_refs = models.ManyToManyField(Links)
-    rss_feed = models.ForeignKey(ForeginPolicyRssFeed, on_delete=models.SET_NULL, null=True)
-
-    def extract_article_html(self):
-        """Method makes the http request to the provided link and extracts the html content
-        of the article. It then sets the file object as the file variable to the object. 
-        """
-        fp_bytes = load_rss_feed.get_article_html_content(article_url=self.link)
-        html_file = File(io.BytesIO(fp_bytes), name=f"article_{self.id}.html")
-        self.file = html_file
-        print(f"Queried Article html from: {self.title}, Size {len(fp_bytes)} bytes")        
 
     def parse_html_for_page_links(self):
         """Parses the bytes for the uploaded html files to extract all of the links from the main content.
@@ -181,7 +230,7 @@ class ForeginPolicyArticle(models.Model):
         not exist then it is created and amd then attached
         """
         # passing in the article bytes to generate the list of links: 
-        links_lst = utils.get_links_from_article_html(self.file.read())
+        links_lst = self._get_links_from_article_html(self.file.read())
 
         for link in links_lst:
             link_obj, created = Links.objects.get_or_create(
@@ -192,6 +241,43 @@ class ForeginPolicyArticle(models.Model):
             self.page_refs.add(link_obj)
 
         print(f"Extracted {len(links_lst)} Links from article: {self.title}")
+
+    def _query_raw_entry_html_content(self, article_url: str) -> bytes:
+        """The function that makes a request for the html content for a fp article based on the
+        url extracted from the rss feed. 
+
+        This method is used inplace of just using the request object in the ForeginPolicyArticle model
+        to add additional error catching or adding url proxy logic to making the request.
+        """
+        headers = {'Cookie': ''}
+        article_response = requests.get(article_url, headers=headers)
+
+        article_html_bytes = article_response.content
+
+        # Add timing to prevent overloading endpoint:
+        time.sleep(5)
+
+        return article_html_bytes
+
+    def _get_links_from_article_html(self, html_bytes: bytes) -> List:
+        """
+        """
+        # Loading we just need the validated urls for the list so we load it into BS4 and pare the main content for hrefs:
+        article_soup = BeautifulSoup(html_bytes, "html.parser")
+        article_tag = article_soup.find("article", class_="article")
+        article_content = article_tag.find_all("div", {"class":lambda x: x in ['content-gated', 'content-ungated']})
+
+        # Building the main list of links from attribute tags from inside the articles content:
+        links = []
+        for div in article_content:
+            for a_tag in div.find_all("a", href=True):
+                links.append(a_tag["href"])
+
+        # Scurbbing the list of links to only include unique and valid elements:
+        unique_links = set(links)
+        valid_links = [url for url in unique_links if validators.url(url)]
+
+        return valid_links
 
     def save(self, *args, **kwargs):
         """Adds functionality that queried the Foregin Policy article html for the model entry and processes it.
