@@ -6,21 +6,31 @@ from urllib.parse import urlparse, parse_qs
 from nameparser import HumanName
 from bs4 import BeautifulSoup
 import validators 
+from ast import List
+import datetime
+import pytz
+import requests
 
 from django.db import models
 from django.core.files import File
 
-# Base Model imports:
-from newsbycountry.base_models import BaseRssEntry, BaseRSSFeed
+from apps.references.base_models import BaseRssEntry, BaseRSSFeed
 
 from apps.people.models import People
 from apps.geography.models import Country
 from apps.references.models import Links, Tags
 
-from apps.foreign_policy.processing_methods import load_rss_feed, utils
-
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+def get_upload_path(instance, filename):
+    ""
+    return "foreign_policy/articles/{}/{}/{}/{}".format(
+        instance.date_published.year,
+        instance.date_published.month,
+        instance.date_published.day,
+        filename
+    )
 
 # Function that asyncronously processes each of the newly created FP Article model objects by adding them to the celery task que:
 @shared_task()
@@ -50,6 +60,8 @@ def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created
 class ForeginPolicyRssFeed(BaseRSSFeed):
     "RSS Feed model for parsing Foreign Policy Articles"
     rss_feed_xml = models.FileField(upload_to="foreign_policy/rss_feed/%Y/%m/%d", null=True, blank=True)
+    feed_source = models.URLField(default="https://foreignpolicy.com/feed/")
+
 
     def extract_fields_from_xml_entry(self, rss_entry: dict) -> tuple:
         """Function takes in an rss entry dictionary and extracts the fields from this
@@ -81,7 +93,7 @@ class ForeginPolicyRssFeed(BaseRSSFeed):
 
         return id, title, date_w_timezone, article_link, file, authors, tags
 
-    def _parse_author_dict(self, authors: List) -> List:
+    def _parse_author_dict(self, authors: list) -> List:
         """Parses the RSS feeds author dictionary to make it a data structure that is compatable with the Django Model used to represent
         People. Assumes the author dict is in the format:
 
@@ -222,6 +234,9 @@ def post_processing_FP_article_objects(sender, instance, created, **kwargs):
 
 class ForeginPolicyArticle(BaseRssEntry):
     "Database model meant to represent an article from Foreign Policy magazine"
+    file = models.FileField(null=True, blank=True, upload_to=get_upload_path)
+    
+    rss_feed = models.ForeignKey(ForeginPolicyRssFeed, on_delete=models.SET_NULL, null=True)
 
     def parse_html_for_page_links(self):
         """Parses the bytes for the uploaded html files to extract all of the links from the main content.

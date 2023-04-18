@@ -56,6 +56,9 @@ services:
 
     command: celery -A newsbycountry worker --loglevel=info
 
+    depends_on:
+      - rabbitmq
+
     networks:
       - dev-django-network
 
