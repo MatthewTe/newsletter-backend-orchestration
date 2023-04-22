@@ -7,7 +7,6 @@ WORKDIR /code
 
 COPY requirements.txt /code/
 
-
 RUN \
  apk add --no-cache postgresql-libs && \
  apk add --no-cache --virtual .build-deps gcc musl-dev postgresql-dev && \
@@ -16,3 +15,7 @@ RUN \
 
 COPY . /code/
 
+RUN chmod +x ./scripts/*.sh
+ENTRYPOINT [ "./scripts/entrypoint.sh" ]
+CMD [ "./scripts/start.sh", "server" ]
+        

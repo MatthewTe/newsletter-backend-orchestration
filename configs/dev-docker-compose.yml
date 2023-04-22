@@ -9,7 +9,12 @@ services:
     ports: 
       - "8000:8000"
 
-    command: python manage.py runserver 0.0.0.0:8000
+    command: ./scripts/start.sh server
+
+    depends_on:
+      - rabbitmq
+      - dev-psql
+      - dev-minio-service
 
     networks:
       - dev-django-network
@@ -54,14 +59,31 @@ services:
       file: dev_configs/base-dev-config.yml
       service: django-app
 
-    command: celery -A newsbycountry worker --loglevel=info
+    command: ./scripts/start.sh worker
 
     depends_on:
       - rabbitmq
+      - dev-psql
+      - dev-minio-service
 
     networks:
       - dev-django-network
 
+  django-celery-process-scheduler:  
+
+    extends:
+      file: dev_configs/base-dev-config.yml
+      service: django-app
+
+    command: ./scripts/start.sh beat
+
+    depends_on:
+      - rabbitmq
+      - dev-psql
+      - dev-minio-service
+
+    networks:
+      - dev-django-network
 
 volumes:
 

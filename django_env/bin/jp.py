@@ -1,4 +1,4 @@
-#!/home/matthew/Repos/newsletter-backend-orchestration/django_env/bin/python
+#!/Users/matthewteelucksingh/Repos/newsletter-backend-orchestration/django_env/bin/python
 
 import sys
 import json

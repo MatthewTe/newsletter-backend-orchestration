@@ -29,6 +29,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'django_minio_backend',
+    'django_celery_beat',
     'django_celery_results',
 
     'apps.people',
