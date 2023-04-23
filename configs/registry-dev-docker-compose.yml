@@ -1,0 +1,115 @@
+services:
+  
+  django-app:
+    
+    image: matthewtee/newsbycountrydjango:development
+
+    ports: 
+      - "8000:8000"
+
+    command: ./scripts/start.sh server
+
+    env_file:
+      - registry-dev.env
+
+    depends_on:
+      - rabbitmq
+      - dev-psql
+      - dev-minio-service
+
+    networks:
+      - dev-django-network
+
+  dev-psql:
+  
+    image: postgres:14.1-alpine
+    restart: always
+
+    ports:
+      - "5432:5432"
+
+    env_file:
+      - registry-dev.env
+
+    volumes:
+      - dev-db:/var/lib/postgresql/data
+
+    networks:
+      - dev-django-network
+
+  dev-minio-service:
+    
+    image: minio/minio
+
+    volumes:
+      - minio_storage:/data
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    command: server --console-address ":9001" /data
+
+    networks:
+      - dev-django-network
+
+    env_file:
+      - registry-dev.env
+
+  # Celery and Celery Broker situation:
+  rabbitmq:
+    container_name: rabbitmq
+    restart: always
+    image: rabbitmq:3.11-management-alpine
+
+    ports:
+      - 5672:5672
+      - 15672:15672      
+
+    networks:
+      - dev-django-network
+
+
+  django-celery-worker:
+
+    image: matthewtee/newsbycountrydjango:development
+
+    command: ./scripts/start.sh worker
+
+    depends_on:
+      - rabbitmq
+      - dev-psql
+      - dev-minio-service
+
+    env_file:
+      - registry-dev.env
+
+    networks:
+      - dev-django-network
+
+  django-celery-process-scheduler:  
+
+    image: matthewtee/newsbycountrydjango:development
+
+    command: ./scripts/start.sh beat
+
+    depends_on:
+      - rabbitmq
+      - dev-psql
+      - dev-minio-service
+
+    env_file:
+      - registry-dev.env
+      
+    networks:
+      - dev-django-network
+
+volumes:
+
+  dev-db:
+    driver: local
+
+  minio_storage: {}
+
+networks:
+  dev-django-network:

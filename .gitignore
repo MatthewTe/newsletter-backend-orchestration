@@ -104,7 +104,7 @@ celerybeat.pid
 
 # Environments
 .env
-
+registry-dev.env
 .venv
 
 # Example configurations for environment files:
