@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from celery.schedules import crontab, schedule
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,7 +15,7 @@ SECRET_KEY = 'django-insecure-w=lmfw+4$5f=o5xfbckk#ap4gmov1btpu-3u00dx6db(^s(olf
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["10.0.0.14"]
+ALLOWED_HOSTS = ["10.0.0.14", "localhost"]
 
 
 # Application definition
@@ -155,3 +156,10 @@ STATICFILES_DIRS = [
 CELERY_BROKER_URL= os.environ.get("CELERY_BROKER")
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
+
+CELERY_BEAT_SCHEDULE = {
+    "ingest_foreign_policy_rss_feed": {
+        "task": "apps.foreign_policy.tasks.load_foreign_policy_rss_feed",
+        "schedule": crontab(hour=8, minute=0)
+    }
+}
