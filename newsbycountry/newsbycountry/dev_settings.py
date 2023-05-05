@@ -142,11 +142,12 @@ MINIO_USE_HTTPS = False
 MINIO_EXTERNAL_ENDPOINT = "localhost:9000"
 MINIO_EXTERNAL_ENDPOINT_USE_HTTPS = False
 
-MINIO_PRIVATE_BUCKETS = [
+MINIO_PUBLIC_BUCKETS = [
     'test-django',
 ]
-MINIO_STATIC_FILES_BUCKET = 'test-django'
- 
+#MINIO_STATIC_FILES_BUCKET = 'test-django'
+MINIO_MEDIA_FILES_BUCKET = 'test-django'
+
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static")

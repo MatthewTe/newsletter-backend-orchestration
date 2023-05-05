@@ -44,12 +44,13 @@ def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created
     # Pulling down the html content based on the Article link param:
     newly_created_article.extract_article_html()
 
+    # Processing the article to connect it to Country models:
+    # TODO: Add the process logic here for parsing Country model.
+
     # Parsing the html content for all relevant links and connecting them to the Article:
     newly_created_article.parse_html_for_page_links()
 
     # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
-    
-    # TODO: To fix the issue, perhaps have a signal be sent so that the task keeps retrying untill it succedes
     new_created_rss_feed = ForeginPolicyRssFeed.objects.get(pk=rss_feed_instance_pk)
     newly_created_article.rss_feed = new_created_rss_feed
 
@@ -173,6 +174,7 @@ class ForeginPolicyRssFeed(BaseRSSFeed):
                 id=entry_id,
                 title=entry_title,
                 date_published=entry_date_w_timezone,
+                #entry_type="Foreign Policy Magazine Article",
                 link=entry_article_link,
                 file=entry_file
             ) 
@@ -235,7 +237,7 @@ def post_processing_FP_article_objects(sender, instance, created, **kwargs):
 class ForeginPolicyArticle(BaseRssEntry):
     "Database model meant to represent an article from Foreign Policy magazine"
     file = models.FileField(null=True, blank=True, upload_to=get_upload_path)
-    
+
     rss_feed = models.ForeignKey(ForeginPolicyRssFeed, on_delete=models.SET_NULL, null=True)
 
     def parse_html_for_page_links(self):
@@ -257,6 +259,12 @@ class ForeginPolicyArticle(BaseRssEntry):
 
         print(f"Extracted {len(links_lst)} Links from article: {self.title}")
 
+    def get_text_from_html(self) -> str:
+        """
+        """
+        extracted_text = self._parse_html_file_for_raw_text(self.file.read())
+        return extracted_text
+    
     def _query_raw_entry_html_content(self, article_url: str) -> bytes:
         """The function that makes a request for the html content for a fp article based on the
         url extracted from the rss feed. 
@@ -294,6 +302,16 @@ class ForeginPolicyArticle(BaseRssEntry):
 
         return valid_links
 
+    def _parse_html_file_for_raw_text(self, html_bytes: bytes) -> str:
+        """This is the custom parser to extracting the main string from the bytes of the html file
+        """
+        article_soup = BeautifulSoup(html_bytes, "html.parser")
+        content = article_soup.find("div", {"class": "content-gated"})
+        content_paragraph = content.find_all("p")
+        raw_article_text = " ".join([paragraph.text for paragraph in content_paragraph])
+        
+        return raw_article_text
+
     def save(self, *args, **kwargs):
         """Adds functionality that queried the Foregin Policy article html for the model entry and processes it.
 
@@ -303,5 +321,5 @@ class ForeginPolicyArticle(BaseRssEntry):
         super(ForeginPolicyArticle, self).save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.title} by {self.authors} on {self.date_published}"
+        return f"{self.title} on {self.date_published}"
     

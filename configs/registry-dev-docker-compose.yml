@@ -69,7 +69,6 @@ services:
     networks:
       - dev-django-network
 
-
   django-celery-worker:
 
     image: matthewtee/newsbycountrydjango:development

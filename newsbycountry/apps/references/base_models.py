@@ -1,13 +1,10 @@
 from ast import List
 import requests
 import time
-import datetime
-import pytz
-import io
-
-from urllib.parse import urlparse, parse_qs
+import base64
 
 from django.core.files import File
+from django.core.files.base import ContentFile
 
 from django.db import models
 from django.core.files import File
@@ -103,25 +100,32 @@ class BaseRssEntry(models.Model):
 
 
     """
+
+    # The unique ID of each model:
     id = models.IntegerField(primary_key=True)
     title = models.CharField(max_length=250)
     date_published = models.DateField()
     link = models.URLField()
-    file = models.FileField(null=True, blank=True)
-
+    file = models.FileField(null=True, blank=True)    
     authors = models.ManyToManyField(People)
     countries = models.ManyToManyField(Country)
     tags = models.ManyToManyField(Tags)
     page_refs = models.ManyToManyField(Links)
     rss_feed = models.ForeignKey(BaseRSSFeed, on_delete=models.SET_NULL, null=True)
 
+    # Meta Data Fields: for models:
+    has_entity_been_processed = models.BooleanField(default=False)
+    has_entity_been_validated = models.BooleanField(default=False)
+    processed_on = models.DateTimeField(blank=True, null=True)
+    validated_on = models.DateTimeField(blank=True, null=True)
+
     def extract_article_html(self):
         """
         Extracts the HTML content of the article from the RSS feed entry's URL link and stores it in a file field.
         """
         raw_bytes = self._query_raw_entry_html_content(article_url=self.link)
-        html_file = File(io.BytesIO(raw_bytes), name=f"entry_{self.id}.html")
-        self.file = html_file
+        html_file = ContentFile(raw_bytes)
+        self.file.save(f"entry_{self.id}.html", html_file)
         print(f"Queried Article html from: {self.title}, Size {len(raw_bytes)} bytes")        
 
     def parse_html_for_page_links(self):
@@ -141,10 +145,32 @@ class BaseRssEntry(models.Model):
             # Connecting the link object to the model (we just set the instance param, we do not save):
             self.page_refs.add(link_obj)
 
+    def get_text_from_html(html_bytes: bytes) -> str:
+        """
+        """
+        pass
+
     def parse_html_for_tags(self):
         """
         """
         pass
+
+    def perform_ner_on_text(self, country_ndr_endpoint: str):
+        """Extracting the raw text content from the article's html file and connecting the 
+        Article to Country object:
+        """
+        # Extracting the raw text from html file and cerating JSON object of data:
+        article_json = {
+            "id": self.pk,
+            "title":self.title,
+            "raw_text":self.get_text_from_html()
+        }
+
+        # Request to NLP Country API enpoint. Expects response as a JSON of spaCy entites:
+        ner_response = requests.post(country_ndr_endpoint, data=article_json)
+
+        return ner_response
+
 
     def save(self, *args, **kwargs):
         """   
@@ -183,6 +209,11 @@ class BaseRssEntry(models.Model):
         time.sleep(5)
 
         return article_html_bytes
+
+    def _parse_html_file_for_raw_text(self, html_bytes: bytes) -> str:
+        """
+        """
+        pass
 
     class Meta:
         abstract = True
