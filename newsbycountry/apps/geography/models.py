@@ -27,4 +27,4 @@ class CountryEntityRemaps(models.Model):
     remap_name = models.CharField(max_length=225, null=True)
 
     def __str__(self):
-        f"{self.remap_name} --> {self.iso_country_name}"
+        return f"{self.remap_name} --> {self.iso_country_name}"

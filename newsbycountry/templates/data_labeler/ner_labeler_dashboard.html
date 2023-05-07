@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+
+
+{% block body %}
+<div>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Title</th>
+                <th scope="col">Date Published</th>
+                <th scope="col">Article Type</th>
+                <th scope="col">Country Labels Processed</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for article in articles %}
+            <tr>
+                <th scope="row"><a href="{% url 'fp_article_dashboard' article.id %}">{{article.id}}</a></th>
+                <th>{{article.title}}</th>
+                <th>{{article.date_published}}</th>
+                <th>FP Article</th>
+                <th>{{article.country_processed}}</th>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock body %}

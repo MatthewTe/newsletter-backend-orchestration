@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+
+
+{% block body %}
+<div class="content">
+    <h1>{{article.title}}</h1>
+    <hr>
+    <div class="accordion" id="accordionExample">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+              Raw Text
+            </button>
+          </h2>
+          <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
+            <div class="accordion-body">
+                <p>{{raw_text}}</p>
+            </div>
+          </div>
+        </div>
+        
+        <hr>
+        <div class="container m-1">
+
+            <div class="row">
+
+                <div class="col-4">
+                    <form action="{% url 'fp_article_dashboard' article.id %}" method="POST" id="populate_ner">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-info ml-2" form="populate_ner" value="Submit">Populate Country Labels with NER</button>
+                    </form>        
+                </div>
+
+                <div class="col-4">
+                    <form action="{% url 'trigger_country_connection_task' article.id %}" method="POST" id="manually_trigger_article_processing">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger" form="manually_trigger_article_processing" value="Submit">Manually Trigger the Article Country Processing Task</button>
+                    </form>
+        
+                </div>
+                
+                <div class="col-4">
+                    <a href="{% url 'admin:geography_countryentityremaps_changelist' %}" class="btn btn-secondary">Manually Set Remap Values</a>
+                </div>
+
+            </div>
+        </div>
+
+        {% if total_article_entities %}
+        <hr>
+        <div class="container mt-1">
+            <h2>Total NER Labels Extracted:</h2>
+            {{total_article_entities}}
+        </div>
+        {% endif %}
+
+        {% if newly_created_article_entities %}
+        <hr>
+        <div class="container mt-1">
+            <h2>New NER Labels Created:</h2>
+            {{newly_created_article_entities}}
+        </div>
+        {% endif %}
+
+</div>
+{% endblock body %}

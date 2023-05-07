@@ -160,7 +160,7 @@ CELERY_CACHE_BACKEND = 'django-cache'
 
 CELERY_BEAT_SCHEDULE = {
     "ingest_foreign_policy_rss_feed": {
-        "task": "apps.foreign_policy.tasks.load_foreign_policy_rss_feed",
+        "task": "apps.foreign_policy.models.load_foreign_policy_rss_feed",
         "schedule": crontab(hour=8, minute=0)
     }
 }

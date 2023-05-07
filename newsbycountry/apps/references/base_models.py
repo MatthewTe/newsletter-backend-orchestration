@@ -2,6 +2,7 @@ from ast import List
 import requests
 import time
 import base64
+import datetime
 
 from django.core.files import File
 from django.core.files.base import ContentFile
@@ -104,13 +105,39 @@ class BaseRssEntry(models.Model):
     # The unique ID of each model:
     id = models.IntegerField(primary_key=True)
     title = models.CharField(max_length=250)
-    date_published = models.DateField()
+    date_published = models.DateField()    
     link = models.URLField()
+
     file = models.FileField(null=True, blank=True)    
+    file_processed = models.BooleanField(default=False)
+    file_processed_on  = models.DateTimeField(blank=True, null=True)
+    file_validated = models.BooleanField(default=False)
+    file_validated_on = models.DateTimeField(blank=True, null=True)
+
     authors = models.ManyToManyField(People)
+    authors_processed = models.BooleanField(default=False)
+    authors_processed_on =  models.DateTimeField(blank=True, null=True)
+    authors_validated = models.BooleanField(default=False)
+    authors_validated_on = models.DateTimeField(blank=True, null=True)
+
     countries = models.ManyToManyField(Country)
+    country_processed = models.BooleanField(default=False)
+    country_processed_on = models.DateTimeField(blank=True, null=True)
+    country_validated = models.BooleanField(default=False)
+    country_validated_on = models.DateTimeField(blank=True, null=True)
+
     tags = models.ManyToManyField(Tags)
+    tags_processed = models.BooleanField(default=False)
+    tags_processed_on  = models.DateTimeField(blank=True, null=True)
+    tags_validated = models.BooleanField(default=False)
+    tags_validated_on = models.DateTimeField(blank=True, null=True)
+
     page_refs = models.ManyToManyField(Links)
+    page_refs_processed = models.BooleanField(default=False)
+    page_refs_processed_on = models.DateTimeField(blank=True, null=True)
+    page_refs_validated = models.BooleanField(default=False)
+    page_refs_validated_on = models.DateTimeField(blank=True, null=True)
+
     rss_feed = models.ForeignKey(BaseRSSFeed, on_delete=models.SET_NULL, null=True)
 
     # Meta Data Fields: for models:
@@ -123,10 +150,19 @@ class BaseRssEntry(models.Model):
         """
         Extracts the HTML content of the article from the RSS feed entry's URL link and stores it in a file field.
         """
+        if not self.file_validated:
+            return 
+
         raw_bytes = self._query_raw_entry_html_content(article_url=self.link)
         html_file = ContentFile(raw_bytes)
         self.file.save(f"entry_{self.id}.html", html_file)
-        print(f"Queried Article html from: {self.title}, Size {len(raw_bytes)} bytes")        
+        print(f"Queried Article html from: {self.title}, Size {len(raw_bytes)} bytes")
+        
+        # Currently Processing and Validating the file field automatically:
+        self.file_processed = True
+        self.file_processed_on = datetime.datetime.now()
+        self.file_validated = True
+        self.file_validated_on = datetime.datetime.now()
 
     def parse_html_for_page_links(self):
         """

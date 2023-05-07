@@ -12,5 +12,7 @@ foreign_policy_router.register(r"article_text", viewsets.ForeginPolicyArticleRaw
 urlpatterns = [
     path("daily", views.render_daily_articles, name="view_daily_articles"),
     path("article/<int:id>", views.display_article, name="display_single_article"),
-    path("api/", include(foreign_policy_router.urls))
+    path("api/", include(foreign_policy_router.urls)),
+    path("article/tasks/add_countries/<int:id>", views.trigger_fp_article_country_processing, name="trigger_country_connection_task"),
+
 ]

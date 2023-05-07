@@ -15,6 +15,7 @@ from django.db import models
 from django.core.files import File
 
 from apps.references.base_models import BaseRssEntry, BaseRSSFeed
+from apps.foreign_policy import tasks as fp_tasks
 
 from apps.people.models import People
 from apps.geography.models import Country
@@ -32,6 +33,12 @@ def get_upload_path(instance, filename):
         filename
     )
 
+@shared_task()
+def load_foreign_policy_rss_feed():
+    """Triggers the ingestion process for downloading and parsing the FP RSS Feed"""
+    new_rss_feed = ForeginPolicyRssFeed()
+    new_rss_feed.save()
+
 # Function that asyncronously processes each of the newly created FP Article model objects by adding them to the celery task que:
 @shared_task()
 def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created_article_pk):
@@ -43,19 +50,24 @@ def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created
 
     # Pulling down the html content based on the Article link param:
     newly_created_article.extract_article_html()
-
-    # Processing the article to connect it to Country models:
-    # TODO: Add the process logic here for parsing Country model.
+ 
+    # Processing the article to connect it to Country models - spinning it out as its own task:
+    fp_tasks.parse_html_content_for_country_mentions.delay(
+        fp_model_pk=newly_created_article_pk
+        )
 
     # Parsing the html content for all relevant links and connecting them to the Article:
-    newly_created_article.parse_html_for_page_links()
+    fp_tasks.parse_html_content_for_links_for_specific_models.delay(
+        fp_model_pk=newly_created_article_pk
+        )
 
     # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
     new_created_rss_feed = ForeginPolicyRssFeed.objects.get(pk=rss_feed_instance_pk)
     newly_created_article.rss_feed = new_created_rss_feed
 
-    newly_created_article.save()
 
+    newly_created_article.has_entity_been_processed = True
+    newly_created_article.save()
 
 
 class ForeginPolicyRssFeed(BaseRSSFeed):
@@ -250,12 +262,11 @@ class ForeginPolicyArticle(BaseRssEntry):
         links_lst = self._get_links_from_article_html(self.file.read())
 
         for link in links_lst:
-            link_obj, created = Links.objects.get_or_create(
-                url=link
-            )
-
-            # Connecting the link object to the model (we just set the instance param, we do not save):
-            self.page_refs.add(link_obj)
+            link_obj, created = Links.objects.get_or_create(url=link)
+            
+            if created:
+                # Connecting the link object to the model (we just set the instance param, we do not save):
+                self.page_refs.add(link_obj)
 
         print(f"Extracted {len(links_lst)} Links from article: {self.title}")
 

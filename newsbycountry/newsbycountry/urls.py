@@ -8,7 +8,8 @@ from newsbycountry import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", views.homepage, name="homepage"),
-    path('foreign_policy/', include("apps.foreign_policy.urls"))
+    path('foreign_policy/', include("apps.foreign_policy.urls")),
+    path("data_labler/", include("apps.data_labeler.urls"))
 ]
 
 # Including a local static url for testing: 
