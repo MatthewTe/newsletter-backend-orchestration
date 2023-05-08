@@ -154,6 +154,7 @@ class BaseRssEntry(models.Model):
             return 
 
         raw_bytes = self._query_raw_entry_html_content(article_url=self.link)
+        print("raw bytes!!!!!!!!!!!!!")
         html_file = ContentFile(raw_bytes)
         self.file.save(f"entry_{self.id}.html", html_file)
         print(f"Queried Article html from: {self.title}, Size {len(raw_bytes)} bytes")

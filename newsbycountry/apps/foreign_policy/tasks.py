@@ -30,7 +30,7 @@ def parse_html_content_for_country_mentions(fp_model_pk):
     """
     fp_model = fp_models.ForeginPolicyArticle.objects.get(pk=fp_model_pk)
     if fp_model.country_validated:
-        print("WHAT?????")
+        return 
     
     article_raw_text = fp_model.get_text_from_html()
 
@@ -44,26 +44,25 @@ def parse_html_content_for_country_mentions(fp_model_pk):
     gpe_labels = [label for label in ner_api_response.json() if label['label_type'] == "GPE"]
     
     # First we naively try to create connections to the Country objects:
-    detected_countries_in_text = [country for country in  geo_models.Country.objects.filter(
+    unique_detected_countries_in_text = [country for country in  geo_models.Country.objects.filter(
         name__in=[label["label"] for label in gpe_labels]) if country not in fp_model.countries.all()]
 
-    for country_model in detected_countries_in_text:
-        print(f"{country_model.name} ADDED")
+    for country_model in unique_detected_countries_in_text:
+        print(f"{country_model.name} ADDED FROM DETECTED")
         fp_model.countries.add(country_model)
 
     # Then we use the country remaps model to determine if there are any other labels that are countries we can add:
     # We create new remaps or get existing ones from the db. If we find remaps that have FK connections to Country objects we map article to country:
-    # TODO: Fix error here where remaps for existing countries are being created instead of bindings: 
     remap_country_objs = [
         geo_models.CountryEntityRemaps.objects.get_or_create(remap_name= label["label"]) for label in gpe_labels 
-        if label['label'] not in [country.name for country in detected_countries_in_text]
+        if label['label'] not in [country.name for country in unique_detected_countries_in_text] or label['label'] not in [country.name for country in fp_model.countries.all()]
     ]
 
     for remap_obj, obj_created in remap_country_objs:
-         if not obj_created and remap_obj.iso_country_name:
+         if not obj_created and remap_obj.iso_country_name and remap_obj.iso_country_name not in [country for country in fp_model.countries.all()]:
               # This is the only condition where we would use a remap to add a Country connection to the Article. The remaps object already existed
               # and the remap object was connected to a Country (it already had a remap) so we connect the article to that remaps' country obj:
-              print(f"{remap_obj.iso_country_name} ADDED")
+              print(f"{remap_obj.iso_country_name} ADDED FROM REMAP")
               fp_model.countries.add(remap_obj.iso_country_name)
     
     fp_model.country_processed = True
