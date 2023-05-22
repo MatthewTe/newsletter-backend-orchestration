@@ -46,27 +46,18 @@ def post_process_article_after_creation_task(rss_feed_instance_pk, newly_created
     # Querying the newly created RSS feed model object and the newly created model instance:
     newly_created_article = ForeginPolicyArticle.objects.get(pk=newly_created_article_pk)
 
-    time.sleep(10)
 
-    # Pulling down the html content based on the Article link param:
     newly_created_article.extract_article_html()
- 
     # Processing the article to connect it to Country models - spinning it out as its own task:
-    fp_tasks.parse_html_content_for_country_mentions.delay(
-        fp_model_pk=newly_created_article_pk
-        )
+    #fp_tasks.parse_html_content_for_country_mentions(fp_model_pk=newly_created_article_pk)
 
     # Parsing the html content for all relevant links and connecting them to the Article:
-    fp_tasks.parse_html_content_for_links_for_specific_models.delay(
-        fp_model_pk=newly_created_article_pk
-        )
+    #fp_tasks.parse_html_content_for_links_for_specific_models(fp_model_pk=newly_created_article_pk)
 
     # Connecting all of the article models to the RSS feed database object via their Foreign Key now that they have been created:
     new_created_rss_feed = ForeginPolicyRssFeed.objects.get(pk=rss_feed_instance_pk)
     newly_created_article.rss_feed = new_created_rss_feed
 
-
-    newly_created_article.has_entity_been_processed = True
     newly_created_article.save()
 
 
@@ -240,7 +231,7 @@ def post_processing_FP_article_objects(sender, instance, created, **kwargs):
 
     if fp_articles:
         for article in fp_articles:
-            
+
             post_process_article_after_creation_task.delay(
                 rss_feed_instance_pk=instance.pk,
                 newly_created_article_pk=article.pk

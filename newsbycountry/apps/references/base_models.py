@@ -150,20 +150,21 @@ class BaseRssEntry(models.Model):
         """
         Extracts the HTML content of the article from the RSS feed entry's URL link and stores it in a file field.
         """
-        if not self.file_validated:
+        if self.file_validated:
             return 
 
         raw_bytes = self._query_raw_entry_html_content(article_url=self.link)
-        print("raw bytes!!!!!!!!!!!!!")
+        # TODO: Add error catching and validation to ensure that the file was actually uploaded
         html_file = ContentFile(raw_bytes)
         self.file.save(f"entry_{self.id}.html", html_file)
-        print(f"Queried Article html from: {self.title}, Size {len(raw_bytes)} bytes")
-        
+        print(f"Extracted and saved HTML file")
+
         # Currently Processing and Validating the file field automatically:
         self.file_processed = True
         self.file_processed_on = datetime.datetime.now()
         self.file_validated = True
         self.file_validated_on = datetime.datetime.now()
+        self.save()
 
     def parse_html_for_page_links(self):
         """

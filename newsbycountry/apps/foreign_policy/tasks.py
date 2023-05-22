@@ -17,6 +17,7 @@ def parse_html_content_for_links_for_specific_models(fp_model_pk):
     """
     fp_model = fp_models.ForeginPolicyArticle.objects.get(pk=fp_model_pk)
     fp_model.parse_html_for_page_links()
+    
     fp_model.page_refs_processed = True
     fp_model.page_refs_processed_on = datetime.datetime.now()
     fp_model.save()
@@ -29,6 +30,7 @@ def parse_html_content_for_country_mentions(fp_model_pk):
     Country database model.
     """
     fp_model = fp_models.ForeginPolicyArticle.objects.get(pk=fp_model_pk)
+    
     if fp_model.country_validated:
         return 
     
@@ -40,6 +42,7 @@ def parse_html_content_for_country_mentions(fp_model_pk):
             "raw_text": article_raw_text
         })
     ner_api_response.raise_for_status()
+    print(f"Making request to NLP API for country labeling")
 
     gpe_labels = [label for label in ner_api_response.json() if label['label_type'] == "GPE"]
     
